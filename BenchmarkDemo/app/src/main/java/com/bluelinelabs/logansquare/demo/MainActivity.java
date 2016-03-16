@@ -1,5 +1,29 @@
 package com.bluelinelabs.logansquare.demo;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
+import com.bluelinelabs.logansquare.LoganSquare;
+import com.bluelinelabs.logansquare.demo.model.Response;
+import com.bluelinelabs.logansquare.demo.parsetasks.GsonParser;
+import com.bluelinelabs.logansquare.demo.parsetasks.JacksonDatabindParser;
+import com.bluelinelabs.logansquare.demo.parsetasks.LoganSquareParser;
+import com.bluelinelabs.logansquare.demo.parsetasks.ParseResult;
+import com.bluelinelabs.logansquare.demo.parsetasks.Parser;
+import com.bluelinelabs.logansquare.demo.parsetasks.Parser.ParseListener;
+import com.bluelinelabs.logansquare.demo.parsetasks.StaticGsonParser;
+import com.bluelinelabs.logansquare.demo.serializetasks.GsonSerializer;
+import com.bluelinelabs.logansquare.demo.serializetasks.JacksonDatabindSerializer;
+import com.bluelinelabs.logansquare.demo.serializetasks.LoganSquareSerializer;
+import com.bluelinelabs.logansquare.demo.serializetasks.SerializeResult;
+import com.bluelinelabs.logansquare.demo.serializetasks.Serializer;
+import com.bluelinelabs.logansquare.demo.serializetasks.Serializer.SerializeListener;
+import com.bluelinelabs.logansquare.demo.serializetasks.StaticGsonSerializer;
+import com.bluelinelabs.logansquare.demo.widget.BarChart;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.gfx.static_gson.StaticGsonTypeAdapterFactory;
+import com.squareup.moshi.Moshi;
+
 import android.app.AlertDialog;
 import android.os.AsyncTask;
 import android.os.Bundle;
@@ -7,27 +31,6 @@ import android.support.v7.app.ActionBarActivity;
 import android.view.View;
 import android.view.View.OnClickListener;
 
-import com.bluelinelabs.logansquare.LoganSquare;
-import com.bluelinelabs.logansquare.demo.model.Response;
-import com.bluelinelabs.logansquare.demo.parsetasks.GsonParser;
-import com.bluelinelabs.logansquare.demo.parsetasks.JacksonDatabindParser;
-import com.bluelinelabs.logansquare.demo.parsetasks.LoganSquareParser;
-import com.bluelinelabs.logansquare.demo.parsetasks.MoshiParser;
-import com.bluelinelabs.logansquare.demo.parsetasks.ParseResult;
-import com.bluelinelabs.logansquare.demo.parsetasks.Parser;
-import com.bluelinelabs.logansquare.demo.parsetasks.Parser.ParseListener;
-import com.bluelinelabs.logansquare.demo.serializetasks.GsonSerializer;
-import com.bluelinelabs.logansquare.demo.serializetasks.JacksonDatabindSerializer;
-import com.bluelinelabs.logansquare.demo.serializetasks.LoganSquareSerializer;
-import com.bluelinelabs.logansquare.demo.serializetasks.MoshiSerializer;
-import com.bluelinelabs.logansquare.demo.serializetasks.SerializeResult;
-import com.bluelinelabs.logansquare.demo.serializetasks.Serializer;
-import com.bluelinelabs.logansquare.demo.serializetasks.Serializer.SerializeListener;
-import com.bluelinelabs.logansquare.demo.widget.BarChart;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
-
-import com.squareup.moshi.Moshi;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -67,7 +70,7 @@ public class MainActivity extends ActionBarActivity {
         mResponsesToSerialize = getResponsesToParse();
 
         mBarChart = (BarChart)findViewById(R.id.bar_chart);
-        mBarChart.setColumnTitles(new String[] {"GSON", "Jackson", "LoganSquare", "Moshi"});
+        mBarChart.setColumnTitles(new String[] {"GSON", "Jackson", "LoganSquare", "StaticGson"});
 
         findViewById(R.id.btn_parse_tests).setOnClickListener(new OnClickListener() {
             @Override
@@ -86,9 +89,13 @@ public class MainActivity extends ActionBarActivity {
 
     private void performParseTests() {
         mBarChart.clear();
-        mBarChart.setSections(new String[] {"Parse 60 items", "Parse 20 items", "Parse 7 items", "Parse 2 items"});
+        mBarChart.setSections(
+                new String[]{"Parse 60 items", "Parse 20 items", "Parse 7 items", "Parse 2 items"});
 
-        Gson gson = new Gson();
+        Gson gson = new GsonBuilder().create();
+        Gson staticGson = new GsonBuilder()
+                .registerTypeAdapterFactory(StaticGsonTypeAdapterFactory.newInstance())
+                .create();
         ObjectMapper objectMapper = new ObjectMapper();
         Moshi moshi = new Moshi.Builder().build();
         List<Parser> parsers = new ArrayList<>();
@@ -96,8 +103,8 @@ public class MainActivity extends ActionBarActivity {
             for (int iteration = 0; iteration < ITERATIONS; iteration++) {
                 parsers.add(new GsonParser(mParseListener, jsonString, gson));
                 parsers.add(new JacksonDatabindParser(mParseListener, jsonString, objectMapper));
-                parsers.add(new MoshiParser(mParseListener, jsonString, moshi));
                 parsers.add(new LoganSquareParser(mParseListener, jsonString));
+                parsers.add(new StaticGsonParser(mParseListener, jsonString, staticGson));
             }
         }
 
@@ -108,18 +115,22 @@ public class MainActivity extends ActionBarActivity {
 
     private void performSerializeTests() {
         mBarChart.clear();
-        mBarChart.setSections(new String[] {"Serialize 60 items", "Serialize 20 items", "Serialize 7 items", "Serialize 2 items"});
+        mBarChart.setSections(
+                new String[]{"Serialize 60 items", "Serialize 20 items", "Serialize 7 items",
+                        "Serialize 2 items"});
 
-        Gson gson = new Gson();
+        Gson gson = new GsonBuilder().create();
+        Gson staticGson = new GsonBuilder()
+                .registerTypeAdapterFactory(StaticGsonTypeAdapterFactory.newInstance())
+                .create();
         ObjectMapper objectMapper = new ObjectMapper();
-        Moshi moshi = new Moshi.Builder().build();
         List<Serializer> serializers = new ArrayList<>();
         for (Response response : mResponsesToSerialize) {
             for (int iteration = 0; iteration < ITERATIONS; iteration++) {
                 serializers.add(new GsonSerializer(mSerializeListener, response, gson));
                 serializers.add(new JacksonDatabindSerializer(mSerializeListener, response, objectMapper));
                 serializers.add(new LoganSquareSerializer(mSerializeListener, response));
-                serializers.add(new MoshiSerializer(mSerializeListener, response, moshi));
+                serializers.add(new StaticGsonSerializer(mSerializeListener, response, staticGson));
             }
         }
 
@@ -148,13 +159,13 @@ public class MainActivity extends ActionBarActivity {
                 break;
         }
 
-        if (parser instanceof GsonParser) {
+        if (parser instanceof GsonParser && !(parser instanceof StaticGsonParser)) {
             mBarChart.addTiming(section, 0, parseResult.runDuration / 1000f);
         } else if (parser instanceof JacksonDatabindParser) {
             mBarChart.addTiming(section, 1, parseResult.runDuration / 1000f);
         } else if (parser instanceof LoganSquareParser) {
             mBarChart.addTiming(section, 2, parseResult.runDuration / 1000f);
-        } else if (parser instanceof MoshiParser) {
+        } else if (parser instanceof StaticGsonParser) {
             mBarChart.addTiming(section, 3, parseResult.runDuration / 1000f);
         }
     }
@@ -179,13 +190,13 @@ public class MainActivity extends ActionBarActivity {
                 break;
         }
 
-        if (serializer instanceof GsonSerializer) {
+        if (serializer instanceof GsonSerializer && !(serializer instanceof StaticGsonSerializer)) {
             mBarChart.addTiming(section, 0, serializeResult.runDuration / 1000f);
         } else if (serializer instanceof JacksonDatabindSerializer) {
             mBarChart.addTiming(section, 1, serializeResult.runDuration / 1000f);
         } else if (serializer instanceof LoganSquareSerializer) {
             mBarChart.addTiming(section, 2, serializeResult.runDuration / 1000f);
-        } else if (serializer instanceof MoshiSerializer) {
+        } else if (serializer instanceof StaticGsonSerializer) {
             mBarChart.addTiming(section, 3, serializeResult.runDuration / 1000f);
         }
     }

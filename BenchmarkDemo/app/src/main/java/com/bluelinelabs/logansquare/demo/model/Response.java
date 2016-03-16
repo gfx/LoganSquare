@@ -1,12 +1,15 @@
 package com.bluelinelabs.logansquare.demo.model;
 
+import com.google.gson.annotations.SerializedName;
+
 import com.bluelinelabs.logansquare.annotation.JsonField;
 import com.bluelinelabs.logansquare.annotation.JsonObject;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.gson.annotations.SerializedName;
+import com.github.gfx.static_gson.annotation.JsonSerializable;
 
 import java.util.List;
 
+@JsonSerializable
 @JsonObject
 public class Response {
 
